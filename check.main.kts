@@ -116,7 +116,7 @@ try {
     )
     run("git", "add", "openjdk.properties")
     run("git", "add", "TAGS.md")
-    run("git", "commit", "-m", "Updated Upstream (OpenJDK $version / ${actualHash.take(8)})")
+    run("git", "commit", "-m", "Updated Upstream (OpenJDK $version / ${actualHash.take(7)})", "-m", "Tags:", builtTags.map { "* `$IMAGE_NAME:$it`" }.joinToString("\n"))
 } finally {
     workDir.deleteRecursively()
 }
