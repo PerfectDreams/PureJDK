@@ -7,6 +7,8 @@
 import org.jsoup.Jsoup
 import java.io.File
 import java.net.URI
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.Properties
 import kotlin.system.exitProcess
@@ -73,7 +75,9 @@ try {
 
     val tarball = File(workDir, "openjdk.tar.gz")
     println("Downloading $link...")
-    tarball.writeBytes(URI(link).toURL().readBytes())
+    URI(link).toURL().openStream().use { input ->
+        Files.copy(input, tarball.toPath(), StandardCopyOption.REPLACE_EXISTING)
+    }
     val actualHash = tarball.sha256()
 
     check(expectedHash == actualHash) { "Hash mismatch! Expected $expectedHash but found $actualHash" }
