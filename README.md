@@ -2,6 +2,8 @@
 
 Automatically updated images with [Oracle's OpenJDK](https://jdk.java.net/) builds.
 
+See the [containers page](https://github.com/PerfectDreams/PureJDK/pkgs/container/purejdk).
+
 See [TAGS.md](./TAGS.md) for the supported tags.
 
 ## But why?
