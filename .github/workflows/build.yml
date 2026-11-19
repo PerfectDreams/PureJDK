@@ -1,0 +1,63 @@
+name: Build and Publish OpenJDK Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Rebuild even if openjdk.properties already has the latest version"
+        type: boolean
+        default: false
+  schedule:
+    # Hourly: only builds if jdk.java.net has a version newer than openjdk.properties
+    - cron: "17 * * * *"
+    # Weekly: always rebuilds, to pick up base image (Ubuntu) security updates
+    - cron: "43 4 * * 1"
+
+permissions:
+  contents: write
+  packages: write
+
+# Never run two builds at the same time, otherwise both could try to push the same tags and commit the same bump
+concurrency:
+  group: openjdk-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+
+      - name: Set up Kotlin
+        uses: fwilhe2/setup-kotlin@main
+
+      - name: Checkout Git Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.LORITTA_PAT }}
+
+      - name: Configure Git User Details
+        run: |
+          git config user.name "Loritta Morenitta"
+          git config user.email 47356322+LorittaMorenitta@users.noreply.github.com
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # If the download, hash check or any image build fails, the workflow fails here and nothing is committed,
+      # so openjdk.properties stays on the last version that was published and the next run tries again
+      - name: Check, Build and Publish
+        run: kotlin check.main.kts
+        env:
+          BYPASS_STORED_VERSION_CHECK: ${{ github.event.schedule == '43 4 * * 1' || inputs.force == true }}
+
+      - name: Push version bump
+        run: git push
