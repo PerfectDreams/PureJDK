@@ -116,7 +116,15 @@ try {
     )
     run("git", "add", "openjdk.properties")
     run("git", "add", "TAGS.md")
-    run("git", "commit", "-m", "Updated Upstream (OpenJDK $version / ${actualHash.take(7)})", "-m", "Tags:", builtTags.map { "* `$IMAGE_NAME:$it`" }.joinToString("\n"))
+
+    val description = buildString {
+        appendLine("Tags:")
+        for (tag in builtTags) {
+            appendLine("* $IMAGE_NAME:$tag")
+        }
+    }
+    
+    run("git", "commit", "-m", "Updated Upstream (OpenJDK $version / ${actualHash.take(7)})", "-m", description)
 } finally {
     workDir.deleteRecursively()
 }
