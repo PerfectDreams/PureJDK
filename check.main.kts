@@ -145,7 +145,8 @@ try {
         }
     }
 
-    run("git", "commit", "-m", "Updated Upstream (OpenJDK $version / ${actualHash.take(7)})", "-m", description)
+    val commitTitle = if (storedVersion != version) "Updated Upstream" else "Image Rebuild"
+    run("git", "commit", "-m", "$commitTitle (OpenJDK $version / ${actualHash.take(7)})", "-m", description)
 } finally {
     workDir.deleteRecursively()
 }
