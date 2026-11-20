@@ -10,6 +10,9 @@ import java.net.URI
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import java.util.Properties
 import kotlin.system.exitProcess
 
@@ -62,6 +65,7 @@ println("Latest version: $version")
 val properties = loadProperties("openjdk.properties")
 
 val storedVersion: String? = properties.getProperty("version")
+val storedDate: String? = properties.getProperty("date")
 
 if (!BYPASS_STORED_VERSION_CHECK && storedVersion == version) {
     println("Nothing to do, we are already up to date!")
@@ -69,6 +73,16 @@ if (!BYPASS_STORED_VERSION_CHECK && storedVersion == version) {
 }
 
 val workDir = kotlin.io.path.createTempDirectory("openjdk-build").toFile()
+val buildTimestamp = ZonedDateTime.now(ZoneOffset.UTC)
+    .format(DateTimeFormatter.ofPattern("yyyyMMdd"))
+
+var code = if (storedDate == buildTimestamp) {
+    // Should NEVER be null here
+    properties.getProperty("code").toInt() + 1
+} else {
+    1
+}
+
 
 try {
     val expectedHash = URI("$link.sha256").toURL().readText()
@@ -91,9 +105,14 @@ try {
 
     val builtTags = mutableListOf<String>()
     for (base in bases) {
-        val tag = "$version-${base.replace(":", "-")}"
-        run("docker", "build", "--pull", "-f", File("Dockerfile").absolutePath, "--build-arg", "BASE_IMAGE=${base}", "-t", "$IMAGE_NAME:$tag", jdkDir.path)
-        builtTags.add(tag)
+        val tagsToBeBuilt = listOf(
+            "$version-${base.replace(":", "-")}",
+            "$version-${base.replace(":", "-")}-$buildTimestamp",
+            "$version-${base.replace(":", "-")}-$buildTimestamp.$code"
+        )
+
+        run("docker", "build", "--pull", "-f", File("Dockerfile").absolutePath, "--build-arg", "BASE_IMAGE=${base}", *tagsToBeBuilt.flatMap { listOf("-t", "$IMAGE_NAME:$it") }.toTypedArray(), jdkDir.path)
+        builtTags.addAll(tagsToBeBuilt)
     }
 
     for (tag in builtTags) {
@@ -102,6 +121,8 @@ try {
 
     properties.setProperty("version", version)
     properties.setProperty("sha256", actualHash)
+    properties.setProperty("date", buildTimestamp)
+    properties.setProperty("code", code.toString())
 
     File("openjdk.properties").outputStream().use { properties.store(it, null) }
 
@@ -123,7 +144,7 @@ try {
             appendLine("* $IMAGE_NAME:$tag")
         }
     }
-    
+
     run("git", "commit", "-m", "Updated Upstream (OpenJDK $version / ${actualHash.take(7)})", "-m", description)
 } finally {
     workDir.deleteRecursively()
